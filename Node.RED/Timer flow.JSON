@@ -1,0 +1,115 @@
+[
+    {
+        "id": "df35f605.5a6738",
+        "type": "mqtt out",
+        "z": "49b24b6e.fabde4",
+        "name": "",
+        "topic": "home/time/timestamp",
+        "qos": "0",
+        "retain": "",
+        "broker": "171132c7.ece67d",
+        "x": 1040,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "90488622.7b0f38",
+        "type": "inject",
+        "z": "49b24b6e.fabde4",
+        "name": "interval",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "repeat": "10",
+        "crontab": "",
+        "once": false,
+        "x": 400,
+        "y": 320,
+        "wires": [
+            [
+                "255fcb94.51c1e4"
+            ]
+        ]
+    },
+    {
+        "id": "255fcb94.51c1e4",
+        "type": "function",
+        "z": "49b24b6e.fabde4",
+        "name": "local time",
+        "func": "//process.env.TZ = 'Europe/Berlin';\n\nvar date = new Date();\n\nvar struct = {\n    \"timestamp\": date.getTime(),\n    \"year\": date.getFullYear(),\n    \"month\": date.getMonth(),\n    \"date\": date.getDate(),\n    \"day\": date.getDay(),\n    \"hour\": date.getHours(),\n    \"minute\": date.getMinutes(),\n    \"second\": date.getSeconds()\n}\n\nstruct.time32 = \n    ((struct.year % 100) << 26) +  \n    (struct.month << 22) + \n    (struct.date << 17) +\n    (struct.hour << 12) +\n    (struct.minute << 6) +\n    struct.second;\n    \nstruct.offset = date.getTimezoneOffset();\n\nmsg.payload = struct;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 580,
+        "y": 320,
+        "wires": [
+            [
+                "b1e96736.1ab478",
+                "63aba57d.07ca1c",
+                "3d011172.fb14ee"
+            ]
+        ]
+    },
+    {
+        "id": "9060fbb.7d37408",
+        "type": "mqtt out",
+        "z": "49b24b6e.fabde4",
+        "name": "",
+        "topic": "home/time/time32",
+        "qos": "0",
+        "retain": "",
+        "broker": "171132c7.ece67d",
+        "x": 1030,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "63aba57d.07ca1c",
+        "type": "function",
+        "z": "49b24b6e.fabde4",
+        "name": "extract time32",
+        "func": "msg.payload = msg.payload.time32;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 800,
+        "y": 360,
+        "wires": [
+            [
+                "9060fbb.7d37408"
+            ]
+        ]
+    },
+    {
+        "id": "b1e96736.1ab478",
+        "type": "function",
+        "z": "49b24b6e.fabde4",
+        "name": "extract timestamp",
+        "func": "msg.payload = msg.payload.timestamp;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 810,
+        "y": 300,
+        "wires": [
+            [
+                "df35f605.5a6738"
+            ]
+        ]
+    },
+    {
+        "id": "171132c7.ece67d",
+        "type": "mqtt-broker",
+        "z": "",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": true,
+        "keepalive": "60",
+        "cleansession": true,
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": ""
+    }
+]

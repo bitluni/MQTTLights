@@ -1,0 +1,99 @@
+<head>
+<title>Screens</title>
+<script>
+
+function spritesToHeader()
+{
+	var name = project.name;
+	var sprites = project.sprites;
+	
+	var text = "const unsigned short " + name + "Res[2] = "
+	text += "{" + sprites[0].xres + ", " + sprites[0].yres + "};\r\n";
+
+	
+	text += "const unsigned char " + name + "Pixels[][3] = {"
+	for(var i = 0; i < 1; i++)
+	{
+		if((i & 63) == 0) text += "\r\n";
+		var s = sprites[i].source;
+		for(var j = 0; j < s.length; j+=4)
+		{
+			var r = s[j + 0];
+			var g = s[j + 1];
+			var b = s[j + 2];
+			text += "{" + r + ", " + g + ", " + b + "}, ";
+		}
+	}
+	text += "};\r\n";
+	return text;
+}
+
+function angleToColor(angle)
+{
+  var colors = [[0, 0, 255], [0, 255, 255], [0, 255, 0], [255, 255, 0], [255, 0, 0], [255, 0, 255]];
+  var f = angle / (Math.PI * 2) * 6 + 7;
+  var ci0 = Math.floor(f) % 6;
+  var ci1 = (ci0 + 1) % 6;
+  var s1 = f - Math.floor(f);
+  var s0 = 1 - s1;
+  return  (Math.floor(colors[ci0][0] * s0 + colors[ci1][0] * s1)) | 
+          (Math.floor(colors[ci0][1] * s0 + colors[ci1][1] * s1) << 8) |
+          (Math.floor(colors[ci0][2] * s0 + colors[ci1][2] * s1) << 16);
+}
+
+function start()
+{
+	var t = "const unsigned short colorWheel[][120] = {";
+	var c = document.getElementById("c");
+	var ctx = c.getContext("2d");
+	var img = ctx.getImageData(0, 0, 120, 120);
+	var p = 0;
+	for(var y = 0; y < 120; y++)
+	{
+		for(var x = 0; x < 120; x++)
+		{
+			var r = Math.sqrt((y - 60) * (y - 60) + (60 - x) * (60 - x));
+			var c = 0;
+			//if(r < 60)
+			{
+				c = angleToColor(Math.atan2(x - 60, y - 60));
+				var s = (Math.min(Math.max(5, r), 55) - 5) / 50;
+				var sc1 = (1 - s) * 255;
+				var s0 = s;
+				c = (Math.round((c & 255) * s0 + sc1)) | 
+				(Math.round(((c >> 8) & 255) * s0 + sc1) << 8) |
+				(Math.round(((c >> 16) & 255) * s0 + sc1) << 16);
+			}
+			img.data[p + 0] = c & 255;
+			img.data[p + 1] = (c >> 8) & 255;
+			img.data[p + 2] = (c >> 16) & 255;
+			img.data[p + 3] = 255;
+			t += ((((c >> 3) & 31) << 11) | (((c >> 10) & 63) << 5) | (((c >> 19) & 31))) + ",";
+			p += 4;
+		}
+		t += "\n";
+	}
+	ctx.putImageData(img, 0, 0);
+	
+	t += "};\n";
+	document.getElementById("filearea").innerHTML = "";
+	var fileArea = document.getElementById("filearea");
+	var file = document.createElement("a");
+	file.download = file.innerHTML = "colorWheel.h";
+	file.href = URL.createObjectURL(new Blob([t], {type: "text/plain"}));
+	fileArea.appendChild(file);	
+}
+
+</script>
+</head>
+<body style="font-family: arial" onload="start();">
+<h1>Screens</h1>
+<div style="max-width: 800px">
+	<canvas id="c" width=120 height=120></canvas>
+	<div id="files">
+		Files
+		<div id="filearea">
+		</div>
+	</div>
+</div>
+</body></html>
