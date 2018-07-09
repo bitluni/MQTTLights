@@ -1,0 +1,100 @@
+[
+    {
+        "id": "e675fd55.402dc",
+        "type": "ui_dropdown",
+        "z": "a159b87f.b45138",
+        "name": "",
+        "label": "Disco Mode",
+        "place": "Select option",
+        "group": "7e338484.151fcc",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "options": [
+            {
+                "label": "Off",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "1",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "2",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "3",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "Audio",
+                "value": 4,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "",
+        "x": 690,
+        "y": 640,
+        "wires": [
+            [
+                "4879a6e.0f4dc58"
+            ]
+        ]
+    },
+    {
+        "id": "4879a6e.0f4dc58",
+        "type": "mqtt out",
+        "z": "a159b87f.b45138",
+        "name": "",
+        "topic": "home/sleepingRoom/disco",
+        "qos": "0",
+        "retain": "false",
+        "broker": "171132c7.ece67d",
+        "x": 1180,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "7e338484.151fcc",
+        "type": "ui_group",
+        "z": "",
+        "name": "Sleeping Room",
+        "tab": "ea10702d.5708d",
+        "order": 1,
+        "disp": true,
+        "width": "6"
+    },
+    {
+        "id": "171132c7.ece67d",
+        "type": "mqtt-broker",
+        "z": "",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": true,
+        "keepalive": "60",
+        "cleansession": true,
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": ""
+    },
+    {
+        "id": "ea10702d.5708d",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Lights",
+        "icon": "dashboard",
+        "order": 3
+    }
+]

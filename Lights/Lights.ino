@@ -1,5 +1,5 @@
 #include <ESP8266WiFi.h>
-#define MAXSUBSCRIPTIONS 1
+#define MAXSUBSCRIPTIONS 4
 #define SUBSCRIPTIONDATALEN 20
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
@@ -17,11 +17,12 @@ const char* mqttPassword = "password";
 const char* colorFeed = "home/sleepingRoom/lightColor";
 const char* alarmFeed = "home/sleepingRoom/lightAlarm";
 const char* time32Feed = "home/time/time32";
+const char* discoFeed = "home/sleepingRoom/disco";
 const int pixelPin = 5;
 const int pixelCount = 104 + 13 + 104 + 13; //104 pixels long side, 13 pixels short side
 
 const bool notifyAfterAlarm = true;
-const bool notifyAfterAlarmMillis = 10000; //ten seconds 
+const bool notifyAfterAlarmMillis = 100000; //ten seconds 
 const int EEPROMCommitDelay = 3000; //write after 3sec no change to color
 /************************* Other settings ****************************/
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(pixelCount, pixelPin, NEO_GRB + NEO_KHZ800);
@@ -31,6 +32,7 @@ Adafruit_MQTT_Client mqtt(&client, mqttServer, mqttPort, mqttUser, mqttPassword)
 Adafruit_MQTT_Subscribe color = Adafruit_MQTT_Subscribe(&mqtt, colorFeed);
 Adafruit_MQTT_Subscribe alarm = Adafruit_MQTT_Subscribe(&mqtt, alarmFeed);
 Adafruit_MQTT_Subscribe time32 = Adafruit_MQTT_Subscribe(&mqtt, time32Feed);
+Adafruit_MQTT_Subscribe discoSub = Adafruit_MQTT_Subscribe(&mqtt, discoFeed);
 
 bool alarmOn = false;
 bool alarmActive = false;
@@ -40,9 +42,11 @@ long currentTime = 0;
 long alarmTime = 0;
 int notify = 0;
 int EEPROMCommit = 0;
-const int disco = 0;
+int disco = 0;
 
 const int DAY = 24 * 60 * 60;
+
+#include "Audio.h"
 
 //{color, duration},
 const int alarmColorKeyframes[][2] = {
@@ -101,6 +105,7 @@ void setup()
   mqtt.subscribe(&color);
   mqtt.subscribe(&time32);
   mqtt.subscribe(&alarm);
+  mqtt.subscribe(&discoSub);
   strip.begin();
   strip.show();
   EEPROM.begin(16);
@@ -121,90 +126,102 @@ void loop()
   static int timeAtAlarm = 0;
   static bool wasConnected = false;
   static bool wasConnectedMQTT = false;
+  static int lastUpdate = 0;
   int t = millis();
   static int time = 0;
   int dt = t - time;
   if (time == 0) dt = 0;
   time = t;
 
-  if (WiFi.status() == WL_CONNECTED)
+  if(disco != 4 || time - lastUpdate > 1000)  //disco mode 4 needs performance
   {
-    if(!wasConnected)
-      Serial.println("WiFi connected.");
-    wasConnected = true;
-    if (mqtt.connected())
+    lastUpdate = time;
+    if (WiFi.status() == WL_CONNECTED)
     {
-      if(!wasConnectedMQTT)
-        Serial.println("MQTT connected.");
-      wasConnectedMQTT = true;
-      Adafruit_MQTT_Subscribe *subscription;
-      while ((subscription = mqtt.readSubscription(20)))
+      if(!wasConnected)
+        Serial.println("WiFi connected.");
+      wasConnected = true;
+      if (mqtt.connected())
       {
-        if (subscription == &color)
+        if(!wasConnectedMQTT)
+          Serial.println("MQTT connected.");
+        wasConnectedMQTT = true;
+        Adafruit_MQTT_Subscribe *subscription;
+        while ((subscription = mqtt.readSubscription(20)))
         {
-          Serial.print("Color: ");
-          int c = atoi((char *)color.lastread);
-          stopNotify();
-          phase = 0;
-          startColor[0] = currentColor[0]; startColor[1] = currentColor[1]; startColor[2] = currentColor[2];
-          targetColor[0] = c >> 16; targetColor[1] = (c >> 8) & 255; targetColor[2] = c & 255;
-          Serial.println(c, 16);
-          writeEEPROMColor();
-        }
-        else if (subscription == &alarm)
-        {
-          Serial.print("Alarm: ");
-          int a = atoi((char *)alarm.lastread);
-          stopNotify();
-          if (a < 0)
+          if (subscription == &color)
           {
-            alarmOn = false;
+            Serial.print("Color: ");
+            int c = atoi((char *)color.lastread);
+            stopNotify();
+            phase = 0;
+            startColor[0] = currentColor[0]; startColor[1] = currentColor[1]; startColor[2] = currentColor[2];
+            targetColor[0] = c >> 16; targetColor[1] = (c >> 8) & 255; targetColor[2] = c & 255;
+            Serial.println(c, 16);
+            writeEEPROMColor();
           }
-          else
+          else if (subscription == &alarm)
           {
-            alarmOn = true;
-            alarmTime = a;
-            //comment in for simple testing
-            //alarmTime = currentTime + 3;
+            Serial.print("Alarm: ");
+            int a = atoi((char *)alarm.lastread);
+            stopNotify();
+            if (a < 0)
+            {
+              alarmOn = false;
+            }
+            else
+            {
+              alarmOn = true;
+              alarmTime = a;
+              //comment in for simple testing
+              //alarmTime = currentTime + 3;
+            }
+            Serial.println(alarmTime);
+            writeEEPROMAlarm();
           }
-          Serial.println(alarmTime);
-          writeEEPROMAlarm();
+          else if (subscription == &time32)
+          {
+            //Serial.print("Time: ");
+            unsigned int t = atoi((char *)time32.lastread);
+            int hours = (t >> 12) & 31;
+            int minutes = (t >> 6) & 63;
+            int seconds = t & 63;
+            currentTime = seconds + (minutes + hours * 60) * 60;
+            timeSet = true;
+            //Serial.println(currentTime);
+          }
+          else if (subscription == &discoSub)
+          {
+            Serial.print("Disco: ");
+            disco = atoi((char *)discoSub.lastread);
+            Serial.println(disco);
+            if(disco == 0) phase = 0;
+          }
         }
-        else if (subscription == &time32)
-        {
-          //Serial.print("Time: ");
-          unsigned int t = atoi((char *)time32.lastread);
-          int hours = (t >> 12) & 31;
-          int minutes = (t >> 6) & 63;
-          int seconds = t & 63;
-          currentTime = seconds + (minutes + hours * 60) * 60;
-          timeSet = true;
-          //Serial.println(currentTime);
-        }
-
       }
+      else
+      {
+        if(wasConnectedMQTT)
+          Serial.println("MQTT disconnected.");
+        wasConnectedMQTT = false;
+        if (lastDisconnect > 1000)
+        {
+          if(mqtt.connect())
+            mqtt.disconnect();
+          lastDisconnect = 0;
+        }
+      }
+      lastDisconnect += dt;
     }
     else
     {
-      if(wasConnectedMQTT)
-        Serial.println("MQTT disconnected.");
-      wasConnectedMQTT = false;
-      if (lastDisconnect > 1000)
-      {
-        if(mqtt.connect())
-          mqtt.disconnect();
-        lastDisconnect = 0;
-      }
+      if(wasConnected)
+        Serial.println("WiFi disconnected.");    
+      wasConnected = false;
     }
-    lastDisconnect += dt;
-  }
-  else
-  {
-    if(wasConnected)
-      Serial.println("WiFi disconnected.");    
-    wasConnected = false;
   }
 /**/
+
   //nothing changed for a while? write the EEPROM
   if(EEPROMCommit > 0)
   {
@@ -276,8 +293,8 @@ void loop()
         }
         if(i == alarmColorKeyframeCount - 1)
         {
-          //if(notifyAfterAlarm)
-            notify = 100000;//notifyAfterAlarmMillis;
+          if(notifyAfterAlarm)
+            notify = notifyAfterAlarmMillis;
             alarmActive = false;
         }
         tsum += alarmColorKeyframes[i][1] * durationScale;
@@ -343,13 +360,24 @@ void loop()
       strip.show(); 
       break;
     }
-   case 3:
-   {      
+    case 3:
+    {      
     for (int i = 0; i < pixelCount; i++)
       {
         strip.setPixelColor(i, strip.Color(sin(t * 0.002 + i * 0.01) * 127 + 128, sin(t * 0.003 + i * 0.03) * 127 + 128, sin(t * 0.001 + i * 0.02) * 127 + 128));     
       }
       strip.show(); 
+      break;
+    }
+    case 4:
+    {
+      analyze();
+      static int oldTime = 0;
+      if(time - oldTime >= 30)
+      {
+        oldTime = time;
+        display();
+      }
       break;
     }
   }
