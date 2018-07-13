@@ -56,10 +56,10 @@ const int alarmColorKeyframes[][2] = {
   {0xD03000, 3},
   {0xff6000, 2},
   {0xffa050, 5},
-  {0xffd080, 50},
+  {0xffd080, 5},
   };
 const int alarmColorKeyframeCount = 7;//sizeof(alarmColorKeyframes) / sizeof(int);
-const int durationScale = 600;
+const int durationScale = 60000;
 
 unsigned char startColor[3] = {0, 0, 0};
 unsigned char currentColor[3] = {0};
